@@ -5,7 +5,44 @@ import helmet from 'helmet';
 import cors from 'cors';
 import compress from 'compression';
 
+//from server/services/index.js
+// export default { graphql, ...};
+import services from './services';
+
+/**
+ * Init express server
+ */
 const app = express();
+
+/**
+ * For convenience, we loop through all indexes of the services object and 
+ * use the index as the name of the route the service will be bound to. 
+ * The path would be /example for the example index in the services object. 
+ * For a typical service, such as a REST interface, we rely on the standard 
+ * app.use method of Express.js.
+ * 
+ * Since the Apollo Server is kind of special, when binding it to Express.js, 
+ * we need to run the applyMiddleware function, which is provided 
+ * by the initialized Apollo Server, and avoid using the app.use function from Express.js. 
+ * Apollo automatically binds itself to the /graphql path because it is the default option.
+ * You could also include a path parameter if you want it to respond from a custom route.
+ * 
+ * The Apollo Server requires us to run the start command before applying the middleware. 
+ * As this is an asynchronous function, we are wrapping the complete block into a wrapping
+ * async function so that we can use the await statement.
+ */
+const serviceNames = Object.keys(services);
+for (let i = 0; i < serviceNames.length; i += 1) {
+  const name = serviceNames[i];
+  if (name === 'graphql') {
+    (async () => {
+      await services[name].start();
+      services[name].applyMiddleware({ app });
+    })();
+  } else {
+    app.use('/${name}', services[name]);
+  }
+}
 
 //compresses all the responses going through it.
 //add it very high in your routing order so that all the requests are affected
